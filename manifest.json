@@ -1,0 +1,21 @@
+{
+    "manifest_version": 3,
+    "name": "Orca",
+    "version": "1.0",
+    "description": "Leetcode Analyser and Smart revision Scheduler",
+    "permissions": [
+        "storage",
+        "activeTab",
+        "scripting"
+    ],
+    "action": {
+        "default_popup": "popup.html"
+    },
+    "content_scripts": [
+        {
+            "matches" : ["https://leetcode.com/*"],
+            "js": ["content.js"]
+        }
+    ]
+
+}
