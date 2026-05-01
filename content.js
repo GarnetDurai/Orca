@@ -2,19 +2,38 @@ let attempts = 0;
 let lastClickTime = 0;
 let viewedSolution = false;
 let lastUrl = location.href;
-let currentProblemName = getpProblemName(location.href);
+let currentProblemName = getProblemName(location.href);
 let solved = false;
 let observer = null;
-let startTime = null;
+let startTime = currentProblemName ? Date.now() : null;
 let startedSolving = false;
 let awaitingResult = false;
 let endTime = null;
 let solutionViewedTime = null;
 let totalTimeHidden = 0;
 let lastHiddenTime = null;
+let firstCodingTime = null;
 function calculateScore() {
     let score = 100;
     const totalTime = (endTime - startTime) / 1000;
+    if(!firstCodingTime){
+        score -=50;
+    }else{
+        const codingDuration = (endTime - firstCodingTime) / 1000;
+        if(codingDuration < 5 && totalTime > 15) {
+            score -= 40;
+        }
+    }
+    if (totalTime > 3600) {
+        score -= 30; // Over an hour
+        console.log("Time Penalty: Over 60 minutes (-30 points).");
+    } else if (totalTime > 2700) {
+        score -= 20; // Over 45 mins
+        console.log("Time Penalty: Over 45 minutes (-20 points).");
+    } else if (totalTime > 1800) {
+        score -= 10; // Over 30 mins
+        console.log("Time Penalty: Over 30 minutes (-10 points).");
+    }
     if(viewedSolution && solutionViewedTime){
         const struggleTime = (solutionViewedTime - startTime) / 1000;
         const struggleRatio = struggleTime / totalTime;
@@ -47,21 +66,22 @@ function calculateScore() {
 function checkUrlChange() { // check if the URL has changed
     if(location.href !== lastUrl) {
         lastUrl = location.href;
-        const newProblemName = getpProblemName(lastUrl);
+        const newProblemName = getProblemName(lastUrl);
             if(newProblemName && currentProblemName && newProblemName !== currentProblemName) {
             attempts = 0;
             viewedSolution = false;
             solved = false;
-            startTime = null;
+            startTime = Date.now();
             startedSolving = false;
             solutionViewedTime = null;
             totalTimeHidden = 0;
             lastHiddenTime = null;
+            firstCodingTime = null;
             currentProblemName = newProblemName;
             console.log("User has navigated to a new problem: " + newProblemName);
             }
         
-        if(solved === false && viewedSolution === false && (lastUrl.includes("/solutions/") || lastUrl.includes("/editorial/"))) {
+        else if(solved === false && viewedSolution === false && (lastUrl.includes("/solutions/") || lastUrl.includes("/editorial/"))) {
             viewedSolution = true;
             solutionViewedTime = Date.now();
             console.log("User has viewd Solution");
@@ -69,7 +89,7 @@ function checkUrlChange() { // check if the URL has changed
         }
     }
 }
-function getpProblemName(url) {
+function getProblemName(url) {
     const part = url.split("/problems/");
     if(part.length < 2) return null;
     const slug = part[1].split("/")[0];
@@ -93,6 +113,38 @@ function waitForResult() {
         console.log("Confidence Score: " + finalScore);
         const timeTaken = ((endTime - startTime)/1000);
         console.log("Time taken to solve: " + timeTaken.toFixed(2) + " seconds.");
+        let daysToAdd = 1;
+        if(finalScore >= 90) daysToAdd = 10;
+        else if(finalScore >= 70) daysToAdd = 5;
+        else if(finalScore >= 40) daysToAdd = 2;
+        const nextRevision = new Date();
+        nextRevision.setDate(nextRevision.getDate() + daysToAdd);
+        console.log("Next revision scheduled on: " + nextRevision.toDateString());
+
+            const problemData = {
+                id : currentProblemName,
+                score: finalScore,
+                timeTaken: timeTaken,
+                attempts: attempts,
+                solvedOn: Date.now(),
+                nextRevision: nextRevision.getTime()
+};
+chrome.local.Storage.local.get({leetcodeHistory: []}, (result)) => {
+    let history = result.leetcodeHistory || {};
+    history[currentProblemName] = problemData;
+    chrome.local.Storage.local.set({leetcodeHistory: history}, () => {
+        console.log("Problem data saved to local storage.");
+    });
+
+
+
+
+
+
+
+
+
+
         awaitingResult = false;
         console.log("Problem solved successfully!");
         return true;
@@ -121,9 +173,6 @@ document.addEventListener("click", e => {
             if(!solved){
             attempts++;
             awaitingResult = true;
-            if(startTime === null) {
-            startTime = Date.now();
-            }
             waitForResult();
             console.log("Total submit attempts: " + attempts);
             }
@@ -140,7 +189,7 @@ document.addEventListener("keydown", e => {
         const editor = document.querySelector(".monaco-editor");
         if(editor && document.activeElement.closest(".monaco-editor") === editor) {
             startedSolving = true;
-            startTime = Date.now();
+            firstCodingTime = Date.now();
             console.log("Started solving the problem.");
     }
 }
@@ -151,11 +200,8 @@ document.addEventListener("visibilitychange", () => {
         lastHiddenTime = Date.now();
     }else if(!document.hidden && lastHiddenTime !== null){
         const timeAway = (Date.now() - lastHiddenTime) / 1000;
-        if(timeAway > 30) {
-            totalTimeHidden += timeAway;
-            console.log("Absence detected :"+timeAway.toFixed(2)+" seconds away from the problem.");
-        }else{
-            console.log("Syntax check or Accidental tab Switch No penalty applied.");
+        if(!solved){
+            totalTimeHidden += timeAway;     
         }
         lastHiddenTime = null;
     }
