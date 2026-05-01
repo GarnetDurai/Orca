@@ -129,25 +129,16 @@ function waitForResult() {
                 solvedOn: Date.now(),
                 nextRevision: nextRevision.getTime()
 };
-chrome.local.Storage.local.get({leetcodeHistory: []}, (result)) => {
+chrome.storage.local.get({leetcodeHistory: {}}, (result) => {
     let history = result.leetcodeHistory || {};
     history[currentProblemName] = problemData;
-    chrome.local.Storage.local.set({leetcodeHistory: history}, () => {
+    chrome.storage.local.set({leetcodeHistory: history}, () => {
         console.log("Problem data saved to local storage.");
     });
-
-
-
-
-
-
-
-
-
-
-        awaitingResult = false;
-        console.log("Problem solved successfully!");
-        return true;
+});
+awaitingResult = false;
+console.log("Problem solved successfully!");
+return true;
     }
     return false;
 }
